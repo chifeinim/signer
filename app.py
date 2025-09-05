@@ -43,7 +43,19 @@ async def sign(req: SignRequest, x_api_key: str = Header(None)):
     signed_path = r.json().get("signedURL")
     if not signed_path:
         raise HTTPException(status_code=502, detail="No signedURL returned")
-    return SignResponse(url=f"{SUPABASE_URL}{signed_path}")
+
+    # Normalize to a full URL under /storage/v1
+    if signed_path.startswith("http"):
+        full_url = signed_path  # rare case Supabase returns absolute
+    elif signed_path.startswith("/storage/v1/"):
+        full_url = f"{SUPABASE_URL}{signed_path}"
+    elif signed_path.startswith("/object/"):
+        full_url = f"{SUPABASE_URL}/storage/v1{signed_path}"
+    else:
+        # fallback if a bare relative path comes back
+        full_url = f"{SUPABASE_URL}/storage/v1/{signed_path.lstrip('/')}"
+
+    return SignResponse(url=full_url)
 
 @app.get("/healthz")
 async def healthz():
